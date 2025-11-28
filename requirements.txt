@@ -1,5 +1,6 @@
 streamlit
 pymongo[srv]
+dnspython
 openai
 Pillow
 numpy
