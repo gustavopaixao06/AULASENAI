@@ -1,103 +1,80 @@
 import streamlit as st
 from pymongo import MongoClient
 import gridfs
+from openai import OpenAI
 from PIL import Image
 import io
 import numpy as np
-import face_recognition
 
-# -------------------------------------------
-# Conexão com o MongoDB GridFS
-# -------------------------------------------
-uri = "mongodb+srv://gustavopaixao086_db_user:a9AaQOXwmFVP6lb7@cluster0.qtihjlg.mongodb.net/?appName=Cluster0"
+# OpenAI Client
+client_ai = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+
+# MongoDB
+uri = st.secrets["MONGO_URI"]
 client = MongoClient(uri)
 db = client["midias"]
 fs = gridfs.GridFS(db)
 
-st.title("Reconhecimento Facial – Pessoa Mais Parecida")
-st.write("Base: Imagens armazenadas no MongoDB GridFS")
+st.title("Reconhecimento Facial com Embeddings (OpenAI)")
 
-# -------------------------------------------
-# Carregar imagens + criar embeddings
-# -------------------------------------------
+# ----------------------------------
+# Função para gerar embeddings
+# ----------------------------------
+def gerar_embedding(imagem_bytes):
+    emb = client_ai.embeddings.create(
+        model="text-embedding-3-large",
+        input=imagem_bytes
+    )
+    return np.array(emb.data[0].embedding)
+
+# ----------------------------------
+# Carregar imagens + embeddings
+# ----------------------------------
 @st.cache_resource
-def carregar_base_gridfs():
+def carregar_base():
     base = []
-    arquivos = list(fs.find())
-
-    for arquivo in arquivos:
+    for arquivo in fs.find():
         dados = arquivo.read()
-        img = face_recognition.load_image_file(io.BytesIO(dados))
-        face_locations = face_recognition.face_locations(img)
 
-        if len(face_locations) == 0:
+        # gera embedding se nao existir no banco
+        try:
+            embedding = gerar_embedding(dados)
+        except:
             continue
-
-        encoding = face_recognition.face_encodings(img, known_face_locations=face_locations)[0]
 
         base.append({
             "nome": arquivo.filename,
             "dados": dados,
-            "encoding": encoding
+            "embedding": embedding
         })
 
     return base
 
-st.write("⏳ Processando imagens do banco...")
-base_emb = carregar_base_gridfs()
-st.write(f"📁 Total de imagens com rosto encontrado: **{len(base_emb)}**")
+st.write("⏳ Carregando imagens e processando embeddings...")
+base_emb = carregar_base()
+st.write(f"📁 Total de imagens carregadas: {len(base_emb)}")
 
-# -------------------------------------------
+# ----------------------------------
 # Upload da foto do usuário
-# -------------------------------------------
-st.subheader("Envie uma foto para encontrar a pessoa mais parecida")
-foto = st.file_uploader("Selecione uma foto", type=["jpg", "jpeg", "png"])
+# ----------------------------------
+foto = st.file_uploader("Envie uma foto", type=["jpg", "jpeg", "png"])
 
 if foto is not None:
-    imagem = Image.open(foto)
-    st.image(imagem, caption="Sua foto", width=300)
+    img = Image.open(foto)
+    st.image(img, caption="Sua foto", width=300)
+    img_bytes = foto.read()
 
-    # Converter para array
-    img_array = np.array(imagem)
+    emb_user = gerar_embedding(img_bytes)
 
-    # Localizar rosto na imagem enviada
-    face_locations = face_recognition.face_locations(img_array)
+    menor_dist = 9999
+    mais_parecida = None
 
-    if len(face_locations) == 0:
-        st.error("Nenhum rosto detectado na sua imagem.")
-    else:
-        usuario_encoding = face_recognition.face_encodings(img_array, known_face_locations=face_locations)[0]
+    for pessoa in base_emb:
+        dist = np.linalg.norm(pessoa["embedding"] - emb_user)
+        if dist < menor_dist:
+            menor_dist = dist
+            mais_parecida = pessoa
 
-        # Encontrar imagem mais parecida
-        menor_dist = 9999
-        mais_parecida = None
-
-        for pessoa in base_emb:
-            dist = np.linalg.norm(pessoa["encoding"] - usuario_encoding)
-            if dist < menor_dist:
-                menor_dist = dist
-                mais_parecida = pessoa
-
-        st.subheader("Pessoa mais parecida encontrada:")
-        st.image(mais_parecida["dados"], caption=mais_parecida["nome"], width=300)
-        st.write(f"Distância (similaridade): **{menor_dist:.4f}**")
-
-# -------------------------------------------
-# Mostrar a galeria
-# -------------------------------------------
-st.subheader("📸 Todas as imagens armazenadas:")
-arquivos = list(fs.find())
-cols = st.columns(3)
-
-for i, arquivo in enumerate(arquivos):
-    dados = arquivo.read()
-    imagem = Image.open(io.BytesIO(dados))
-
-    with cols[i % 3]:
-        st.image(imagem, caption=arquivo.filename, use_container_width=True)
-        st.download_button(
-            label="Baixar",
-            data=dados,
-            file_name=arquivo.filename,
-            mime="image/jpeg"
-        )
+    st.subheader("Pessoa mais parecida encontrada:")
+    st.image(mais_parecida["dados"], caption=mais_parecida["nome"], width=300)
+    st.write(f"Distância: {menor_dist:.4f}")
