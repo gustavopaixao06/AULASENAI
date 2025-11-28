@@ -1,6 +1,5 @@
 streamlit
 pymongo[srv]
+openai
 Pillow
 numpy
-face_recognition
-face-recognition-models
