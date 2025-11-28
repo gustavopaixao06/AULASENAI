@@ -1,3 +1,5 @@
+deepface
 streamlit
 pymongo[srv]
+
 Pillow
