@@ -6,20 +6,24 @@ from PIL import Image
 import io
 import numpy as np
 
-# OpenAI Client
-client_ai = OpenAI(api_key=st.secrets["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"])
+# ===========================
+# 🔑 CHAVES DO STREAMLIT SECRETS
+# ===========================
+client_ai = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+mongo_uri = st.secrets["MONGO_URI"]
 
-# MongoDB
-uri = st.secrets["mongodb+srv://gustavopaixao086_db_user:a9AaQOXwmFVP6lb7@cluster0.qtihjlg.mongodb.net/?retryWrites=true&w=majority"]
-client = MongoClient(uri)
+# ===========================
+# 🔗 CONEXÃO COM MONGODB
+# ===========================
+client = MongoClient(mongo_uri)
 db = client["midias"]
 fs = gridfs.GridFS(db)
 
-st.title("Reconhecimento Facial com Embeddings (OpenAI)")
+st.title("🔍 Reconhecimento Facial com Embeddings (OpenAI)")
 
-# ----------------------------------
-# Função para gerar embeddings
-# ----------------------------------
+# ===========================
+# 🧠 Função para gerar embeddings
+# ===========================
 def gerar_embedding(imagem_bytes):
     emb = client_ai.embeddings.create(
         model="text-embedding-3-large",
@@ -27,19 +31,19 @@ def gerar_embedding(imagem_bytes):
     )
     return np.array(emb.data[0].embedding)
 
-# ----------------------------------
-# Carregar imagens + embeddings
-# ----------------------------------
+# ===========================
+# 📂 Carregar imagens + embeddings
+# ===========================
 @st.cache_resource
 def carregar_base():
     base = []
     for arquivo in fs.find():
         dados = arquivo.read()
 
-        # gera embedding se nao existir no banco
         try:
             embedding = gerar_embedding(dados)
-        except:
+        except Exception as e:
+            print("Erro ao gerar embedding:", e)
             continue
 
         base.append({
@@ -50,18 +54,18 @@ def carregar_base():
 
     return base
 
-st.write("⏳ Carregando imagens e processando embeddings...")
+st.write("⏳ Carregando banco de imagens...")
 base_emb = carregar_base()
 st.write(f"📁 Total de imagens carregadas: {len(base_emb)}")
 
-# ----------------------------------
-# Upload da foto do usuário
-# ----------------------------------
-foto = st.file_uploader("Envie uma foto", type=["jpg", "jpeg", "png"])
+# ===========================
+# 📸 Upload da foto do usuário
+# ===========================
+foto = st.file_uploader("Envie uma foto para comparação", type=["jpg", "jpeg", "png"])
 
 if foto is not None:
     img = Image.open(foto)
-    st.image(img, caption="Sua foto", width=300)
+    st.image(img, caption="Sua foto enviada", width=300)
     img_bytes = foto.read()
 
     emb_user = gerar_embedding(img_bytes)
@@ -75,7 +79,6 @@ if foto is not None:
             menor_dist = dist
             mais_parecida = pessoa
 
-    st.subheader("Pessoa mais parecida encontrada:")
+    st.subheader("👤 Pessoa mais parecida encontrada:")
     st.image(mais_parecida["dados"], caption=mais_parecida["nome"], width=300)
-    st.write(f"Distância: {menor_dist:.4f}")
-
+    st.write(f"📏 Distância calculada: **{menor_dist:.4f}**")
