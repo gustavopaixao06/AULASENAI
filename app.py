@@ -5,7 +5,7 @@ from PIL import Image
 import io
 
 # Conexão com o MongoDB Atlas
-uri = "mongodb+srv://rafaelorsi_db_user:XtXNcEROaB0BXUrK@cluster0.strkbie.mongodb.net/?appName=Cluster0"
+uri = "mongodb+srv://gustavopaixao086_db_user:a9AaQOXwmFVP6lb7@cluster0.qtihjlg.mongodb.net/?appName=Cluster0"
 client = MongoClient(uri)
 db = client['midias']
 fs = gridfs.GridFS(db)
@@ -33,4 +33,5 @@ else:
                 data=dados,
                 file_name=arquivo.filename,
                 mime="image/jpeg"
+
             )
