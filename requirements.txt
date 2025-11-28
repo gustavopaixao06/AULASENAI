@@ -1,5 +1,6 @@
-deepface
 streamlit
 pymongo[srv]
-
 Pillow
+numpy
+face_recognition
+face-recognition-models
