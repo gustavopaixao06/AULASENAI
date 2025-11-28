@@ -7,10 +7,10 @@ import io
 import numpy as np
 
 # OpenAI Client
-client_ai = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+client_ai = OpenAI(api_key=st.secrets["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"])
 
 # MongoDB
-uri = st.secrets["MONGO_URI"]
+uri = st.secrets["mongodb+srv://gustavopaixao086_db_user:a9AaQOXwmFVP6lb7@cluster0.qtihjlg.mongodb.net/?retryWrites=true&w=majority"]
 client = MongoClient(uri)
 db = client["midias"]
 fs = gridfs.GridFS(db)
@@ -78,3 +78,4 @@ if foto is not None:
     st.subheader("Pessoa mais parecida encontrada:")
     st.image(mais_parecida["dados"], caption=mais_parecida["nome"], width=300)
     st.write(f"Distância: {menor_dist:.4f}")
+
